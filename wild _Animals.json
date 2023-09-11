@@ -1,0 +1,17 @@
+{
+  "nombre cuestionario": "Wild Animals",
+  "tipo": "respuesta mezclada",
+  "preguntas": [
+    {"pregunta": "dolphin",
+    "imagen": "dolphin.png"},
+    {"pregunta": "elephant",
+    "imagen": "elephant.png"},
+    {"pregunta": "hippo",
+    "imagen": "hippo.png"},
+    {"pregunta": "lion",
+    "imagen": "lion.png"},
+    {"pregunta": "monkey",
+    "imagen": "monkey.png"}
+  ]
+
+}
