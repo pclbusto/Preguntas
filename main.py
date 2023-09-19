@@ -37,6 +37,14 @@ class Cuestionario():
         with open(cuestionario_json, "r") as f:
             self.conjunto_preguntas = json.load(f)
 
+    def pregunta_siguiente(self):
+        if self.pregunta_actual < self.cantidad_preguntas() - 1:
+            self.pregunta_actual += 1
+
+    def pregunta_anterior(self):
+        if self.pregunta_actual>0:
+            self.pregunta_actual-=1
+
 
 class App(customtkinter.CTk):
     def __init__(self, cuestionario):
@@ -64,14 +72,11 @@ class App(customtkinter.CTk):
         self.cargar_pregunta()
 
     def button_callbck_anterior(self):
-        if self.cuestionario.pregunta_actual > 0:
-            self.cuestionario.pregunta_actual -= 1
-            self.cargar_pregunta()
+        self.cuestionario.pregunta_anterior()
+        self.cargar_pregunta()
     def button_callbck_siguiente(self):
-        if self.cuestionario.pregunta_actual < self.cuestionario.cantidad_preguntas():
-            self.cuestionario.pregunta_actual += 1
-            self.cargar_pregunta()
-
+        self.cuestionario.pregunta_siguiente()
+        self.cargar_pregunta()
     def cargar_pregunta(self):
         ima = Image.open(os.path.join(self.image_path, self.cuestionario.imagen_pregunta_actual()))
         self.image = customtkinter.CTkImage(ima, size=(260, 260 * (ima.size[1] / ima.size[0])))
