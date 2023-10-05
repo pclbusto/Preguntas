@@ -52,7 +52,7 @@ class App(customtkinter.CTk):
         self.geometry("500x280")
         self.frm = customtkinter.CTkFrame(self)
         self.cuestionario = cuestionario
-        self.image_path="Imagenes"
+        self.image_path= "Cuestionarios/wild_animals01/Imagenes"
         self.label_imagen = customtkinter.CTkLabel(self.frm, text="")
         self.label_imagen.grid(column=0, row=0, pady=10, padx=10)
         self.label_letras_cambiadas = customtkinter.CTkLabel(self.frm, text="", font=customtkinter.CTkFont(size=15, weight="bold"))
