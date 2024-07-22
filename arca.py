@@ -35,6 +35,7 @@ class Text_Sprite(arcade.Sprite):
         super().__init__(texture=textura)
 
 
+
 class MyGame(arcade.Window):
 
     def __init__(self, width, height, title):

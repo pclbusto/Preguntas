@@ -55,13 +55,19 @@ class Circulo_De_Letra(arcade.Sprite):
         print(self.position)
 
 
+class Box2(arcade.Sprite):
+    def __init__(self):
+        # este srpite es para representar la palabra mietras se va seleccionando con las letras
+        super().__init__(filename="./sprites/caja2.png")
+
+
 class MyGame(arcade.Window):
 
     def __init__(self, width, height, title):
 
         # Call the parent class's init function
         super().__init__(width, height, title)
-        self.color_ciruclos = color=(130, 149, 218  , 255)
+        self.color_circulos = color=(130, 149, 218, 200)
         # Set the background color
         arcade.set_background_color(arcade.color.ASH_GREY)
         # self.texto_seleccionado = None
@@ -69,10 +75,9 @@ class MyGame(arcade.Window):
         lista_letras = "LIAEIMRTE"
         self.lista_sprites_letras = arcade.SpriteList()
         self.lista_sprites_circulos = arcade.SpriteList()
-
         for i in range(0, len(lista_letras)):
             self.lista_sprites_letras.append(Text_Sprite(lista_letras[i]))
-            self.lista_sprites_circulos.append(arcade.SpriteCircle(radius=int(self.lista_sprites_letras[i].height/1.6), color=self.color_ciruclos))
+            self.lista_sprites_circulos.append(arcade.SpriteCircle(radius=int(self.lista_sprites_letras[i].height/1.6), color=self.color_circulos))
             self.lista_sprites_circulos[i].visible = False
         self.lista_seleccionados = []
         self.start_pos = (0,0)
@@ -93,9 +98,6 @@ class MyGame(arcade.Window):
             self.lista_sprites_letras[i].center_y = radio * math.sin(grados_seccion * i)+self.circulo_letra.center_y
             self.lista_sprites_circulos[i].position = self.lista_sprites_letras[i].position
 
-
-
-
     def on_draw(self):
         """ Called whenever we need to draw the window. """
         arcade.start_render()
@@ -109,9 +111,14 @@ class MyGame(arcade.Window):
                 end_x = self.lista_seleccionados[index].center_x
                 end_y = self.lista_seleccionados[index].center_y
                 # arcade.draw_circle_filled(center_x= start_x, center_y=start_y, radius=5, color=(0,0,200,100))
-                arcade.draw_line(start_x= start_x, start_y=start_y,end_x= end_x,end_y= end_y, line_width=10, color=self.color_ciruclos)
+                arcade.draw_line(start_x= start_x, start_y=start_y,end_x= end_x,end_y= end_y, line_width=10, color=self.color_circulos)
         self.lista_sprites_letras.draw()
-
+    #     vamos a dibujar las cajas con las letras que fueron seleccionadas para ver la palabra que se esta formando.
+        palabra = ""
+        for circulo_seleccionado in self.lista_seleccionados:
+            index = self.lista_sprites_circulos.index(circulo_seleccionado)
+            palabra += self.lista_sprites_letras[index].text
+        print(palabra)
 
     def on_mouse_press(self, x: int, y: int, button: int, modifiers: int):
         self.track_mouse = True
