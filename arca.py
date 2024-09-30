@@ -2,6 +2,9 @@ import arcade
 from PIL import Image, ImageDraw, ImageFont
 from arcade.gui import UIManager
 import arcade.gui
+import os
+import json
+
 
 class TexImg:
     def crear_imagen(self):
@@ -24,7 +27,7 @@ class TexImg:
 class Text_Sprite(arcade.Sprite):
     def __init__(self, texto="", size=40):
         aux = Image.new("RGBA", (1, 1), (255, 255, 255, 0))
-        fnt = ImageFont.truetype("./fuentes/Ubuntu-Title.ttf", size)
+        fnt = ImageFont.truetype("../../fuentes/Ubuntu-Title.ttf", size)
         d = ImageDraw.Draw(aux)
         box = d.textbbox(xy=(0, 0), text=texto, font=fnt)
         texto_imagen = Image.new("RGBA", (box[2], box[3]), (255, 255, 255, 0))
@@ -41,35 +44,43 @@ class MyGame(arcade.Window):
     def __init__(self, width, height, title):
 
         # Call the parent class's init function
-        super().__init__(width, height, title)
+        super().__init__(width, height, title,center_window=True)
 
+        self.index = 0
+        print("DIRECTORIO{}".format(os.getcwd()) )
+        cuestionario = None
+        with open('../../Cuestionarios/ejercicio-ejemplo.json') as json_file:
+            cuestionario = json.load(json_file)
         # Set the background color
         arcade.set_background_color(arcade.color.ASH_GREY)
         self.texto_seleccionado = None
-        self.imagen_sprt = arcade.Sprite("Cuestionarios/wild_animals01/Imagenes/dolphin.png", scale=0.5, center_x=50, center_y=50)
-        self.sprtTxt = Text_Sprite("dolphin")
-        self.sprtTxt.center_x=200
-        self.sprtTxt.center_y=200
-        self.ui_manager = UIManager()
-        ui_input_box = arcade.gui.UIInputText(center_x = 300, center_y = 300, width = 300)
-        ui_input_box.text = 'UIInputBox'
-        ui_input_box.cursor_index = len(ui_input_box.text)
-        self.ui_manager.add(ui_input_box)
+        self.opciones_lista = arcade.SpriteList()
+        for opcion in cuestionario["preguntas"][self.index]["opciones"]:
+            altura = height - (height/8)
+            self.opciones_lista.append(arcade.create_text_sprite(opcion, 0,altura,(123,41,12), 20, font_name="../../fuentes/Mat Saleh.ttf"))
+
+    def distribuir(self):
+        longitud_total=0
+        for opcion in self.opciones_lista:
+            longitud_total+=opcion.width+10
+
+        # if self.width>=longitud_total:
+            # alcanza con una sola linea
 
     def on_draw(self):
         """ Called whenever we need to draw the window. """
         arcade.start_render()
-        self.sprtTxt.draw()
-        self.imagen_sprt.draw()
-        self.ui_manager.draw()
+        self.opciones_lista.draw()
 
 
     def on_mouse_press(self, x: int, y: int, button: int, modifiers: int):
-        if self.sprtTxt.collides_with_point((x,y)):
-            self.texto_seleccionado = self.sprtTxt
-            self.texto_seleccionado.x = x
-            self.texto_seleccionado.y = y
-            print("seleccionado")
+        for opcion in self.opciones_lista:
+            if opcion.collides_with_point((x,y)):
+                self.texto_seleccionado = opcion
+                self.texto_seleccionado.x = x
+                self.texto_seleccionado.y = y
+                print("seleccionado")
+                break
 
     def on_mouse_release(self, x: int, y: int, button: int, modifiers: int):
         self.texto_seleccionado = None
@@ -92,3 +103,5 @@ def main():
     # TexImg().crear_imagen()
 
 main()
+
+#AIzaSyA_qKebPRHPnJPFvTf_c3dyFu_5PEhTMtA

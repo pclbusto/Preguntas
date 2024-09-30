@@ -1,0 +1,14 @@
+{
+    "nombre_custionario": "could/couldn't - 00001",
+    "preguntas": [
+        {
+            "pregunta": "I _ run very fast. I train hard everyday.",
+            "opciones": [
+                "could",
+                "couldn't",
+                "can"
+            ],
+            "correcta": 2
+        }
+    ]
+}
