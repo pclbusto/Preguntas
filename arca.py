@@ -47,7 +47,8 @@ class MyGame(arcade.Window):
         super().__init__(width, height, title,center_window=True)
 
         self.index = 0
-        print("DIRECTORIO{}".format(os.getcwd()) )
+        print("DIRECTORIO{}".format(os.getcwd()))
+        os.chdir("venv/bin")
         cuestionario = None
         with open('../../Cuestionarios/ejercicio-ejemplo.json') as json_file:
             cuestionario = json.load(json_file)
@@ -58,20 +59,47 @@ class MyGame(arcade.Window):
         for opcion in cuestionario["preguntas"][self.index]["opciones"]:
             altura = height - (height/8)
             self.opciones_lista.append(arcade.create_text_sprite(opcion, 0,altura,(123,41,12), 20, font_name="../../fuentes/Mat Saleh.ttf"))
+        lista_palabra = cuestionario["preguntas"][self.index]["pregunta"].split()
+        self.palabra_lista = arcade.SpriteList()
+        self.respuesta_lista = arcade.SpriteList()
+        for palabra in lista_palabra:
+            if palabra == '_':
+                aux = arcade.create_text_sprite("________", 0,altura,(123,41,12), 20, font_name="../../fuentes/Mat Saleh.ttf")
+                aux = arcade.SpriteSolidColor(width=aux.width, height=aux.height, color=(0,0,0))
+                aux.bottom = altura
+                aux.visible = False
+                self.palabra_lista.append(aux)
+                self.respuesta_lista.append(aux)
+                # self.palabra_lista.append(arcade.create_text_sprite("________", 0,altura,(123,41,12), 20, font_name="../../fuentes/Mat Saleh.ttf"))
+            else:
+                self.palabra_lista.append(arcade.create_text_sprite(palabra, 0, altura, (123, 41, 12), 20,
+                                                                    font_name="../../fuentes/Mat Saleh.ttf"))
 
-    def distribuir(self):
+        self.distribuir(lista_palabras=self.opciones_lista)
+        self.distribuir(lista_palabras=self.palabra_lista, altura=-300)
+
+    def distribuir(self, altura=0, lista_palabras=None):
         longitud_total=0
-        for opcion in self.opciones_lista:
+        for opcion in lista_palabras:
             longitud_total+=opcion.width+10
-
-        # if self.width>=longitud_total:
+        punto_inicial = 0
+        print(self.width, longitud_total-10)
+        if self.width>=longitud_total-10:
             # alcanza con una sola linea
+
+            punto_inicial = (self.width-(longitud_total-10))/2
+        for opcion in lista_palabras:
+            opcion.left = punto_inicial
+            opcion.bottom += altura
+            punto_inicial += opcion.width + 10
+
 
     def on_draw(self):
         """ Called whenever we need to draw the window. """
         arcade.start_render()
         self.opciones_lista.draw()
-
+        self.palabra_lista.draw()
+        self.respuesta_lista.draw_hit_boxes(color=(255,0,0), line_thickness=2)
 
     def on_mouse_press(self, x: int, y: int, button: int, modifiers: int):
         for opcion in self.opciones_lista:
@@ -83,8 +111,12 @@ class MyGame(arcade.Window):
                 break
 
     def on_mouse_release(self, x: int, y: int, button: int, modifiers: int):
+
+        lista_coliciones = self.texto_seleccionado.collides_with_list(self.respuesta_lista)
+        if lista_coliciones:
+            self.texto_seleccionado.center_x = lista_coliciones[0].center_x
+            self.texto_seleccionado.center_y = lista_coliciones[0].center_y
         self.texto_seleccionado = None
-        print("liberado")
 
     def on_mouse_drag(self, x: int, y: int, dx: int, dy: int, buttons: int, modifiers: int):
         # print("hol")
