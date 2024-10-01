@@ -6,7 +6,10 @@
             "opciones": [
                 "could",
                 "couldn't",
-                "can"
+                "can",
+              "can't",
+              "who",
+              "where"
             ],
             "correcta": ["could","couldn't"]
         },
