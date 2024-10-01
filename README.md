@@ -1,10 +1,9 @@
 Pasos generales para crear el juego:
-
-#Version 1
-
-1. pantalla que muestra una pregunta con multiples opciones. 
-1. 
-2. Definir la lógica del juego: Establece las reglas y la mecánica del juego, como el número de palabras, la longitud de las palabras, el número de intentos permitidos y el sistema de puntuación.
+Preguntas va a tener 3 partes 
+> * la interfaz gráfica que la vamos a hacer en arcade
+> * lenguaje y vamos al jason para representar los cuestionarios
+> * sistema de puntuación que va a estar basado en cuántos aciertos tengo y el tiempo que me tomó responder un cuestionario
+1. Definir la lógica del juego: Establece las reglas y la mecánica del juego, como el número de palabras, la longitud de las palabras, el número de intentos permitidos y el sistema de puntuación.
 1. Generar ejercicios
 1. Implementar la interfaz de usuario: Diseña una interfaz de usuario que permita al jugador interactuar con el juego, incluyendo la visualización de la palabra actual, el historial de intentos y los mensajes de retroalimentación.
 1. Gestionar la entrada del jugador: Procesa las pulsaciones del teclado del jugador para capturar sus intentos y actualizar el estado del juego.
