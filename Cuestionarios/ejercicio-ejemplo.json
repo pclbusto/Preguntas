@@ -1,6 +1,15 @@
 {
     "nombre_custionario": "could/couldn't - 00001",
     "preguntas": [
+                {
+            "pregunta": "The dog _ run very fast, but _ swim.",
+            "opciones": [
+                "could",
+                "couldn't",
+                "can"
+            ],
+            "correcta": ["could","couldn't"]
+        },
         {
             "pregunta": "I _ run very fast. I train hard everyday.",
             "opciones": [
@@ -8,7 +17,7 @@
                 "couldn't",
                 "can"
             ],
-            "correcta": 2
+            "correcta": ["couldn't"]
         }
     ]
 }

@@ -75,23 +75,32 @@ class MyGame(arcade.Window):
                 self.palabra_lista.append(arcade.create_text_sprite(palabra, 0, altura, (123, 41, 12), 20,
                                                                     font_name="../../fuentes/Mat Saleh.ttf"))
 
+
         self.distribuir(lista_palabras=self.opciones_lista)
         self.distribuir(lista_palabras=self.palabra_lista, altura=-300)
+        self.lista_pos_originales_opciones = list()
+        for opcion in self.opciones_lista:
+            self.lista_pos_originales_opciones.append((opcion.center_x, opcion.center_y))
 
     def distribuir(self, altura=0, lista_palabras=None):
         longitud_total=0
         for opcion in lista_palabras:
             longitud_total+=opcion.width+10
-        punto_inicial = 0
+        punto_inicial = 10
         print(self.width, longitud_total-10)
         if self.width>=longitud_total-10:
             # alcanza con una sola linea
-
             punto_inicial = (self.width-(longitud_total-10))/2
+
         for opcion in lista_palabras:
             opcion.left = punto_inicial
             opcion.bottom += altura
             punto_inicial += opcion.width + 10
+            if lista_palabras.index(opcion)<len(lista_palabras)-1:
+                if punto_inicial+lista_palabras[lista_palabras.index(opcion)+1].width+10>self.width:
+                    punto_inicial = 10
+                    altura -= 35
+
 
 
     def on_draw(self):
@@ -111,15 +120,21 @@ class MyGame(arcade.Window):
                 break
 
     def on_mouse_release(self, x: int, y: int, button: int, modifiers: int):
-
-        lista_coliciones = self.texto_seleccionado.collides_with_list(self.respuesta_lista)
-        if lista_coliciones:
-            self.texto_seleccionado.center_x = lista_coliciones[0].center_x
-            self.texto_seleccionado.center_y = lista_coliciones[0].center_y
-        self.texto_seleccionado = None
+        if self.texto_seleccionado:
+            lista_coliciones = self.texto_seleccionado.collides_with_list(self.respuesta_lista)
+            if lista_coliciones:
+                self.texto_seleccionado.center_x = lista_coliciones[0].center_x
+                self.texto_seleccionado.bottom = lista_coliciones[0].bottom
+                # todo: marcar de alguna manera la opcion que se asigno. Es decir guarda la opcion seleccionada.
+            #     teniendo en cuenta que podemos tener mas de una opción lo que que hay que hacer es una asignacion
+            else:
+                self.texto_seleccionado.center_x = \
+                self.lista_pos_originales_opciones[self.opciones_lista.index(self.texto_seleccionado)][0]
+                self.texto_seleccionado.center_y = \
+                self.lista_pos_originales_opciones[self.opciones_lista.index(self.texto_seleccionado)][1]
+            self.texto_seleccionado = None
 
     def on_mouse_drag(self, x: int, y: int, dx: int, dy: int, buttons: int, modifiers: int):
-        # print("hol")
         if self.texto_seleccionado is not None:
             # self.texto_seleccionado. = x
             self.texto_seleccionado.center_y = y
