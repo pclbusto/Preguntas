@@ -7,37 +7,7 @@ import os
 import json
 
 
-# class TexImg:
-#     def crear_imagen(self):
-#         out1 = Image.new("RGBA", (1, 1), (255, 255, 255,0))
-#         # out = out.convert('RGBA')
-#         # out.a
-#         # get a font
-#         fnt = ImageFont.truetype("./fuentes/Ubuntu-Title.ttf", 40)
-#         # get a drawing context
-#         d = ImageDraw.Draw(out1)
-#         box = d.textbbox(xy=(0,0), text="Batman is the best super hero", font=fnt)
-#         print(box[2],box[3])
-#         out = Image.new("RGBA", (box[2],box[3]), (255, 255, 255, 0))
-#         d = ImageDraw.Draw(out)
-#         # draw multiline text
-#         d.text((0, 0), "Batman is the best super hero", font=fnt, fill=(243, 123, 0))
-#         return out
-#         # out.show()
-#
-# class Text_Sprite(arcade.Sprite):
-#     def __init__(self, texto="", size=40):
-#         aux = Image.new("RGBA", (1, 1), (255, 255, 255, 0))
-#         fnt = ImageFont.truetype("../../fuentes/Ubuntu-Title.ttf", size)
-#         d = ImageDraw.Draw(aux)
-#         box = d.textbbox(xy=(0, 0), text=texto, font=fnt)
-#         texto_imagen = Image.new("RGBA", (box[2], box[3]), (255, 255, 255, 0))
-#         d = ImageDraw.Draw(texto_imagen)
-#         # draw multiline text
-#         d.text((0, 0), texto, font=fnt, fill=((162,126,150)))
-#         textura = arcade.Texture(name="texto", image=texto_imagen, hit_box_algorithm="Simple")
-#         super().__init__(texture=textura)
-#
+
 from enum import Enum
 
 class Orientacion(Enum):
@@ -63,6 +33,10 @@ class Botton_Flecha(arcade.Sprite):
         super().__init__(filename=filename, center_y=center_y, center_x=center_x, flipped_horizontally=flipped_horizontally)
         self.puntero_encima = False
         self.clickeado = False
+        self.evento_click = None
+
+    def set_evento(self, funcion):
+        self.evento_click = funcion
 
     def mouse_over(self, x: float, y: float, dx: float, dy: float):
         if self.collides_with_point((x,y)):
@@ -77,11 +51,42 @@ class Botton_Flecha(arcade.Sprite):
         if self.collides_with_point((x, y)):
             self.clickeado = True
             self.scale = 0.75
+            if self.evento_click:
+                self.evento_click()
+
 
     def mouse_released(self, x: float, y: float, button: int, modifiers: int):
         if self.collides_with_point((x, y)):
             self.clickeado = False
             self.scale = 1
+
+class Questionario():
+    def __init__(self, archivo=None):
+        self.cuestionario = None
+        if archivo is None:
+            return
+        with open(archivo) as json_file:
+            self.cuestionario = json.load(json_file)
+            for index, pregunta in enumerate(self.cuestionario["preguntas"]):
+                cantidad_respuestas= pregunta["pregunta"].count("_")
+                self.cuestionario["preguntas"][index]["respuestas"] = [0]*cantidad_respuestas
+        self.indice = 0
+
+    def opciones(self):
+        if self.cuestionario is not None:
+            return self.cuestionario["preguntas"][self.indice]["opciones"]
+
+    def pregunta(self):
+        if self.cuestionario is not None:
+            return self.cuestionario["preguntas"][self.indice]["pregunta"]
+
+    def siguiente(self):
+        self.indice += 1
+    def anterior(self):
+        self.indice -= 1
+
+    def agregar_respuesta(self,valor, index):
+        self.cuestionario["preguntas"][self.indice]["respuestas"][index] = valor
 
 class MyGame(arcade.Window):
 
@@ -93,22 +98,38 @@ class MyGame(arcade.Window):
         self.index = 0
         print("DIRECTORIO{}".format(os.getcwd()))
         os.chdir("venv/bin")
-        cuestionario = None
-        with open('../../Cuestionarios/ejercicio-ejemplo.json') as json_file:
-            cuestionario = json.load(json_file)
         # Set the background color
         arcade.set_background_color(arcade.color.ASH_GREY)
         self.texto_seleccionado = None
         self.opciones_lista = arcade.SpriteList()
-        for opcion in cuestionario["preguntas"][self.index]["opciones"]:
-            altura = height - (height/8)
-            self.opciones_lista.append(arcade.create_text_sprite(opcion, 0,altura,(123,41,12), 20, font_name="../../fuentes/Mat Saleh.ttf"))
-        lista_palabra = cuestionario["preguntas"][self.index]["pregunta"].split()
+        self.questionario = Questionario('../../Cuestionarios/ejercicio-ejemplo.json')
+        self.font_name = "../../fuentes/Mat Saleh.ttf"
+        self.lista_botones = arcade.SpriteList()
+        self.lista_botones.append(Botton_Flecha(orientacion=Orientacion.DERECHA, center_y=100, center_x=self.width-100,))
+        self.lista_botones.append(Botton_Flecha(orientacion=Orientacion.IZQUIERDA, center_y=100, center_x=100))
+        self.lista_pos_originales_opciones = list()
+        self.mostrar_pregunta()
+        self.boton_focused = None
+        self.lista_botones[0].set_evento( self.evento_click_siguiente)
+        self.lista_botones[1].set_evento(self.evento_click_anterior)
+
+    def evento_click_siguiente(self):
+        self.questionario.siguiente()
+        self.mostrar_pregunta()
+    def evento_click_anterior(self):
+        self.questionario.anterior()
+        self.mostrar_pregunta()
+    def mostrar_pregunta(self):
+        self.opciones_lista.clear()
+        for opcion in self.questionario.opciones():
+            altura = self.height - (self.height/8)
+            self.opciones_lista.append(arcade.create_text_sprite(opcion, 0,altura,(123,41,12), 20, font_name=self.font_name))
+        lista_palabra = self.questionario.pregunta().split()
         self.palabra_lista = arcade.SpriteList()
         self.respuesta_lista = arcade.SpriteList()
         for palabra in lista_palabra:
             if palabra == '_':
-                aux = arcade.create_text_sprite("________", 0,altura,(123,41,12), 20, font_name="../../fuentes/Mat Saleh.ttf")
+                aux = arcade.create_text_sprite("________", 0,altura,(123,41,12), 20, font_name=self.font_name)
                 aux = arcade.SpriteSolidColor(width=aux.width, height=aux.height, color=(0,0,0))
                 aux.bottom = altura
                 aux.visible = False
@@ -117,17 +138,11 @@ class MyGame(arcade.Window):
                 # self.palabra_lista.append(arcade.create_text_sprite("________", 0,altura,(123,41,12), 20, font_name="../../fuentes/Mat Saleh.ttf"))
             else:
                 self.palabra_lista.append(arcade.create_text_sprite(palabra, 0, altura, (123, 41, 12), 20,
-                                                                    font_name="../../fuentes/Mat Saleh.ttf"))
-
-        self.lista_botones = arcade.SpriteList()
-        self.lista_botones.append(Botton_Flecha(orientacion=Orientacion.DERECHA, center_y=100, center_x=self.width-100,))
-        self.lista_botones.append(Botton_Flecha(orientacion=Orientacion.IZQUIERDA, center_y=100, center_x=100))
+                                                                    font_name=self.font_name))
         self.distribuir(lista_palabras=self.opciones_lista)
         self.distribuir(lista_palabras=self.palabra_lista, altura=-300)
-        self.lista_pos_originales_opciones = list()
         for opcion in self.opciones_lista:
             self.lista_pos_originales_opciones.append((opcion.center_x, opcion.center_y))
-        self.boton_focused = None
 
     def distribuir(self, altura=0, lista_palabras=None):
         longitud_total=0
@@ -179,6 +194,7 @@ class MyGame(arcade.Window):
             if lista_coliciones:
                 self.texto_seleccionado.center_x = lista_coliciones[0].center_x
                 self.texto_seleccionado.bottom = lista_coliciones[0].bottom
+                self.questionario.agregar_respuesta(lista_coliciones.index(lista_coliciones[0]))
                 # todo: marcar de alguna manera la opcion que se asigno. Es decir guarda la opcion seleccionada.
             #     teniendo en cuenta que podemos tener mas de una opción lo que que hay que hacer es una asignacion
             else:
