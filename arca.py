@@ -97,7 +97,8 @@ class MyGame(arcade.Window):
 
         self.index = 0
         print("DIRECTORIO{}".format(os.getcwd()))
-        os.chdir("venv/bin")
+        print(os.listdir())
+        os.chdir(".venv/Scripts")
         # Set the background color
         arcade.set_background_color(arcade.color.ASH_GREY)
         self.texto_seleccionado = None
