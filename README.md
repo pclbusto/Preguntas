@@ -9,6 +9,10 @@ En la parte superior de la pantalla vamos a tener las opciones para que el usuar
 En la parte central vamos a tener el texto o lugar donde poner las respuestas que el usuario seleccione. lsa opciones se van a arrastar hasta las casillas. En caso de soltar la respuesta fuera de una casilla esta volverá a su lugar de orgien.
 En la parte inferior de la pantalla vamos a mostrar dos botoenes de navegación. Uno para avanzar y otro para poder volver entre el conjunto de preguntas. Si el usuario seleccionó alguna respuesta y cambia de pregunta el sistema debe guarda el estado de la pregunta con las respuesta elegida por el usuario.
 
+
+![UI](UI-Mock.svg)
+
+
 # Representación de cuestionarios
 Se usa un Json para la reperesentación de un cuestionario. La estructura para la version 1.0 tiene dos claves:
 ## Nombre Cuestionario
