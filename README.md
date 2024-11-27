@@ -1,26 +1,32 @@
-Pasos generales para crear el juego:
-Preguntas va a tener 3 partes 
-> * la interfaz gráfica que la vamos a hacer en arcade
-> * lenguaje y vamos al jason para representar los cuestionarios
-> * sistema de puntuación que va a estar basado en cuántos aciertos tengo y el tiempo que me tomó responder un cuestionario
-1. Definir la lógica del juego: Establece las reglas y la mecánica del juego, como el número de palabras, la longitud de las palabras, el número de intentos permitidos y el sistema de puntuación.
-1. Generar ejercicios
-1. Implementar la interfaz de usuario: Diseña una interfaz de usuario que permita al jugador interactuar con el juego, incluyendo la visualización de la palabra actual, el historial de intentos y los mensajes de retroalimentación.
-1. Gestionar la entrada del jugador: Procesa las pulsaciones del teclado del jugador para capturar sus intentos y actualizar el estado del juego.
-1. Comprobar las palabras: Implementa una función para verificar si la palabra introducida por el jugador es válida y si coincide con la palabra secreta.
-1. Proporcionar pistas: Si el jugador no acierta la palabra, ofrece pistas o sugerencias que lo ayuden a adivinarla, como letras correctas en la posición incorrecta o letras que no están en la palabra.
-1. Controlar el flujo del juego: Gestiona el número de intentos restantes, actualiza la puntuación y finaliza el juego cuando se cumplan las condiciones establecidas.
-1. Agregar características adicionales: Puedes mejorar tu juego incorporando características adicionales como diferentes niveles de dificultad, un sistema de puntuación más complejo, temporizadores o la posibilidad de guardar el progreso del jugador.
+# Preguntas
 
-# 1. 
-Este programa debe generar custionarios de multiple opcion. motrando en la parte superior de la pantalla las opciones que tiene disponibles y poder arrastrarla al lugar correcto que tambien va a estar marcado. 
+Software que va permitir mostrar cuestionarios en base a archivos Json que representan las preguntas y las forma de solucionarlos. La primera version de esto es poder tener un software que permita reproducir n cantidad de preguntas guardar sus respuestas y evaluar el resultado del cuestionario. Mostrar al usuario las preguntas correctas y las que falló. Tener un sistema de puntuación que evaluara tiempo y cantidad de respuestas correctas. Para esto vamos a usar la librerira Arcade.
+La idea inicial es que las respuestas sean opción multiple. el usuario va a tener *N* opciones y deberá elegir una de estas como la respuesta correcta. Responder las *N* preguntas que tenga el cuestionario y subirlo para su evaluación. finalmente se le mostrará el resultado de la prueba.
 
-Recuerda que este es un proceso general y los detalles específicos de la implementación pueden variar según tu enfoque y las características que desees incluir en tu juego.
+# Interfaz gráfica
 
-Consejos adicionales:
+En la parte superior de la pantalla vamos a tener las opciones para que el usuario las pueda arrastrar al lugar que corresponde a una respuesta.
+En la parte central vamos a tener el texto o lugar donde poner las respuestas que el usuario seleccione. lsa opciones se van a arrastar hasta las casillas. En caso de soltar la respuesta fuera de una casilla esta volverá a su lugar de orgien.
+En la parte inferior de la pantalla vamos a mostrar dos botoenes de navegación. Uno para avanzar y otro para poder volver entre el conjunto de preguntas. Si el usuario seleccionó alguna respuesta y cambia de pregunta el sistema debe guarda el estado de la pregunta con las respuesta elegida por el usuario.
 
-    Comienza con un diseño simple y ve agregando complejidad a medida que avanzas.
-    Prueba tu juego con frecuencia para identificar y corregir errores.
-    Solicita comentarios de otros usuarios para mejorar la jugabilidad y la experiencia general del juego.
 
-lista que me larga Gemini para arrancar. Vamos a desarrollar cada punto a me dida que avance la cosa.
+![UI](UI-Mock.svg)
+
+
+# Representación de cuestionarios
+Se usa un Json para la reperesentación de un cuestionario. La estructura para la version 1.0 tiene dos claves:
+## Nombre Cuestionario
+Representa el nombre del cuestionario. Es una cadena y puede tener cualquier valor.
+## Preguntas
+Es una lista de nodos. Cada uno de los nodos representa una pregunta del cuestionario. pueden haber tantas preguntas como se quieran incluir en el cuestionario.
+
+El nodo contiene las siguientes calves:
+### Pregunta
+Esta clave es la pregunta a la cual el usuario debera responder.
+### Opciones
+Es una lista de valores. Contiene las opciones entre las cuales el usuario debera elegir como posible respuesta.
+### Correcta
+Lista que respresenta los valores correctos. *Se podría usar los indices que representa la opción correcta pero al momento de construir el custionario hace que sea menos claro cual es la opción u opciones correcta*, por esto se usa la palabra.
+
+# Sistema de evaluación
+
