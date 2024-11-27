@@ -2,7 +2,7 @@ import arcade
 from PIL import Image, ImageDraw, ImageFont
 from arcade.gui import UIManager
 import arcade.gui
-from arcade import  Sprite
+from arcade import Sprite
 import os
 import json
 
@@ -60,7 +60,7 @@ class Botton_Flecha(arcade.Sprite):
             self.clickeado = False
             self.scale = 1
 
-class Questionario():
+class Cuestionario():
     def __init__(self, archivo=None):
         self.cuestionario = None
         if archivo is None:
@@ -69,7 +69,7 @@ class Questionario():
             self.cuestionario = json.load(json_file)
             for index, pregunta in enumerate(self.cuestionario["preguntas"]):
                 cantidad_respuestas= pregunta["pregunta"].count("_")
-                self.cuestionario["preguntas"][index]["respuestas"] = [0]*cantidad_respuestas
+                self.cuestionario["preguntas"][index]["respuestas"] = [""]*cantidad_respuestas
         self.indice = 0
 
     def opciones(self):
@@ -86,7 +86,19 @@ class Questionario():
         self.indice -= 1
 
     def agregar_respuesta(self,valor, index):
+        print(self.cuestionario)
+        print(valor, index)
         self.cuestionario["preguntas"][self.indice]["respuestas"][index] = valor
+
+class Text_Sprite(arcade.Sprite):
+    def __init__(self, text='', start_x=0,start_y=0, color=(0,0, 0), font_size=8, font_name=None):
+        super().__init__()
+        aux  = arcade.create_text_sprite(text=text, start_x=start_x, start_y=start_y, color=color, font_size=font_size,
+                                         font_name=font_name)
+        self.texture = aux.texture
+        self.hit_box = self.texture.hit_box_points
+        self.text = text
+
 
 class MyGame(arcade.Window):
 
@@ -102,7 +114,7 @@ class MyGame(arcade.Window):
         arcade.set_background_color(arcade.color.ASH_GREY)
         self.texto_seleccionado = None
         self.opciones_lista = arcade.SpriteList()
-        self.questionario = Questionario('../../Cuestionarios/ejercicio-ejemplo.json')
+        self.cuestionario = Cuestionario('../../Cuestionarios/ejercicio-ejemplo.json')
         self.font_name = "../../fuentes/Mat Saleh.ttf"
         self.lista_botones = arcade.SpriteList()
         self.lista_botones.append(Botton_Flecha(orientacion=Orientacion.DERECHA, center_y=100, center_x=self.width-100,))
@@ -114,17 +126,20 @@ class MyGame(arcade.Window):
         self.lista_botones[1].set_evento(self.evento_click_anterior)
 
     def evento_click_siguiente(self):
-        self.questionario.siguiente()
+        self.cuestionario.siguiente()
         self.mostrar_pregunta()
     def evento_click_anterior(self):
-        self.questionario.anterior()
+        self.cuestionario.anterior()
         self.mostrar_pregunta()
     def mostrar_pregunta(self):
         self.opciones_lista.clear()
-        for opcion in self.questionario.opciones():
+        for opcion in self.cuestionario.opciones():
             altura = self.height - (self.height/8)
-            self.opciones_lista.append(arcade.create_text_sprite(opcion, 0,altura,(123,41,12), 20, font_name=self.font_name))
-        lista_palabra = self.questionario.pregunta().split()
+            # self.opciones_lista.append(arcade.create_text_sprite(opcion, 0,altura,(123,41,12), 20, font_name=self.font_name))
+            self.opciones_lista.append(
+                Text_Sprite(text=opcion, start_x=0, start_y=altura, color=(123, 41, 12), font_size= 20, font_name=self.font_name))
+
+        lista_palabra = self.cuestionario.pregunta().split()
         self.palabra_lista = arcade.SpriteList()
         self.respuesta_lista = arcade.SpriteList()
         for palabra in lista_palabra:
@@ -135,11 +150,10 @@ class MyGame(arcade.Window):
                 aux.visible = False
                 self.palabra_lista.append(aux)
                 self.respuesta_lista.append(aux)
-                # self.palabra_lista.append(arcade.create_text_sprite("________", 0,altura,(123,41,12), 20, font_name="../../fuentes/Mat Saleh.ttf"))
             else:
                 self.palabra_lista.append(arcade.create_text_sprite(palabra, 0, altura, (123, 41, 12), 20,
                                                                     font_name=self.font_name))
-        self.distribuir(lista_palabras=self.opciones_lista)
+        self.distribuir(lista_palabras=self.opciones_lista, altura=600)
         self.distribuir(lista_palabras=self.palabra_lista, altura=-300)
         for opcion in self.opciones_lista:
             self.lista_pos_originales_opciones.append((opcion.center_x, opcion.center_y))
@@ -194,7 +208,7 @@ class MyGame(arcade.Window):
             if lista_coliciones:
                 self.texto_seleccionado.center_x = lista_coliciones[0].center_x
                 self.texto_seleccionado.bottom = lista_coliciones[0].bottom
-                self.questionario.agregar_respuesta(lista_coliciones.index(lista_coliciones[0]))
+                self.cuestionario.agregar_respuesta(lista_coliciones.index(lista_coliciones[0]), self.texto_seleccionado.text)
                 # todo: marcar de alguna manera la opcion que se asigno. Es decir guarda la opcion seleccionada.
             #     teniendo en cuenta que podemos tener mas de una opción lo que que hay que hacer es una asignacion
             else:
