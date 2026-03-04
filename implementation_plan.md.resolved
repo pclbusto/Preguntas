@@ -1,0 +1,37 @@
+# User Profiles & Roles Implementation Plan
+
+## Goal Description
+Implementar un sistema de gestión de usuarios en Django que soporte al menos dos roles distintos:
+1. **Creador**: Los usuarios que crean las evaluaciones.
+2. **Estudiante/Evaluado**: Los usuarios que realizan las evaluaciones.
+
+La mejor práctica en Django es usar un modelo de usuario personalizado (`CustomUser`) que herede de `AbstractUser` antes de que la base de datos crezca. Como acabamos de crear la base de datos y está vacía, estamos a tiempo de hacerlo correctamente.
+
+## Proposed Changes
+
+### 1. App `users`
+- Ejecutaremos `python manage.py startapp users`.
+- **[NEW]** `c:\python\Preguntas\backend\users\models.py`:
+  Crearemos un `CustomUser` derivado de `AbstractUser`. Le añadiremos un campo `role` con opciones: `CREATOR` y `STUDENT`.
+- **[NEW]** `c:\python\Preguntas\backend\users\serializers.py`:
+  Crearemos serializadores para registrar usuarios (RegisterSerializer) y para ver el perfil (CustomUserSerializer).
+- **[NEW]** `c:\python\Preguntas\backend\users\views.py`:
+  Añadiremos vistas para el registro (`RegisterView`) y para obtener la información del usuario actual (`UserProfileView`).
+- **[NEW]** `c:\python\Preguntas\backend\users\urls.py`:
+  Añadiremos los endpoints `/api/users/register/` y `/api/users/me/`.
+
+### 2. Configuración ([backend/settings.py](file:///c:/python/Preguntas/backend/backend/settings.py))
+- **[MODIFY]** Añadiremos `'users'` a `INSTALLED_APPS`.
+- **[NEW]** Añadiremos la variable `AUTH_USER_MODEL = 'users.CustomUser'`.
+
+### 3. Base de Datos
+- **[DELETE]** [c:\python\Preguntas\backend\db.sqlite3](file:///python/Preguntas/backend/db.sqlite3).
+  Para evitar conflictos con las migraciones anteriores que usaban el modelo de usuario por defecto, eliminaremos la base de datos actual (que está vacía) y volveremos a aplicar las migraciones (`makemigrations users` y `migrate`).
+
+## Verification Plan
+### Automated Tests
+- N/A para esta fase.
+
+### Manual Verification
+- Iniciaremos el servidor de Django y probaremos los endpoints directamente desde nuestro código o pidiendo al frontend que intente crear un usuario con un rol específico.
+- Confirmaremos que los modelos se reflejan correctamente en SQLite sin dar errores de migración.
