@@ -1,20 +1,34 @@
 import React, { useState, useEffect } from 'react'
 
-const ExerciseRenderer = ({ exercise, onComplete, token }) => {
-  const [inputs, setInputs] = useState({})
+const parseExerciseContent = (text) => {
+  const correct_answers = {}
+  let gapCount = 0
+  const content = text.replace(/{([^}]+)}/g, (match, answer) => {
+    gapCount++
+    const gapKey = `gap${gapCount}`
+    correct_answers[gapKey] = answer
+    return `{${gapKey}}`
+  })
+  return { content, correct_answers }
+}
+
+const ExerciseRenderer = ({ exercise, onComplete, token, initialInputs = {}, onAnswersChange }) => {
+  const [inputs, setInputs] = useState(initialInputs)
   const [feedback, setFeedback] = useState({})
   const [isCompleted, setIsCompleted] = useState(false)
   const [startTime, setStartTime] = useState(null)
 
   useEffect(() => {
-    setInputs({})
+    setInputs(initialInputs)
     setFeedback({})
     setIsCompleted(false)
     setStartTime(new Date())
-  }, [exercise])
+  }, [exercise, initialInputs])
 
   const handleInputChange = (gapKey, value) => {
-    setInputs(prev => ({ ...prev, [gapKey]: value }))
+    const newInputs = { ...inputs, [gapKey]: value }
+    setInputs(newInputs)
+    if (onAnswersChange) onAnswersChange(newInputs)
   }
 
   const handleDragStart = (e, value) => {
@@ -154,8 +168,6 @@ function App() {
   const [backendMessage, setBackendMessage] = useState("")
   const [isSignupOpen, setIsSignupOpen] = useState(false)
   const [isLoginOpen, setIsLoginOpen] = useState(false)
-  const [isNewActivityOpen, setIsNewActivityOpen] = useState(false)
-  const [editingActivity, setEditingActivity] = useState(null)
 
   // Auth states
   const [user, setUser] = useState(null)
@@ -163,7 +175,6 @@ function App() {
 
   // App logic states
   const [lessons, setLessons] = useState([])
-  const [activities, setActivities] = useState([])
   const [activeLesson, setActiveLesson] = useState(null)
   const [currentPageIdx, setCurrentPageIdx] = useState(0)
   const [currentExerciseIdx, setCurrentExerciseIdx] = useState(0)
@@ -174,16 +185,25 @@ function App() {
   const [password, setPassword] = useState("")
   const [role, setRole] = useState("student")
 
-  // Activity form states
-  const [activityTitle, setActivityTitle] = useState("")
-  const [activityDesc, setActivityDesc] = useState("")
-  const [activityType, setActivityType] = useState("task")
-  const [activityPages, setActivityPages] = useState([])
-
   const [authStatus, setAuthStatus] = useState(null)
 
   const [isStatsOpen, setIsStatsOpen] = useState(false)
   const [userStats, setUserStats] = useState({ attempts: [], achievements: [], progress: [] })
+
+  // Lesson session state
+  const [lessonAnswers, setLessonAnswers] = useState({}) // { [exerciseId]: { gap1: "val" } }
+  const [showResults, setShowResults] = useState(false)
+  const [lessonSummary, setLessonSummary] = useState({ score: 0, correct: 0, total: 0 })
+
+  // Creator states
+  const [isNewLessonOpen, setIsNewLessonOpen] = useState(false)
+  const [editingLesson, setEditingLesson] = useState(null)
+  const [newLessonData, setNewLessonData] = useState({ title: "", description: "" })
+  const [activePageForEdit, setActivePageForEdit] = useState(null)
+  const [isNewPageOpen, setIsNewPageOpen] = useState(false)
+  const [isNewExerciseOpen, setIsNewExerciseOpen] = useState(false)
+  const [editingExercise, setEditingExercise] = useState(null)
+  const [editingLessonMeta, setEditingLessonMeta] = useState(null)
 
   useEffect(() => {
     fetch('/api/ping/')
@@ -194,7 +214,6 @@ function App() {
     if (token) {
       fetchUserProfile(token);
       fetchLessons(token);
-      fetchActivities(token);
     }
   }, [token])
 
@@ -259,195 +278,23 @@ function App() {
     } catch (err) { console.error("Error fetching lessons:", err); }
   }
 
-  const fetchActivities = async (authToken) => {
-    try {
-      const response = await fetch('/api/generics/', {
-        headers: { 'Authorization': `Token ${authToken}` }
-      });
-      if (response.ok) {
-        const data = await response.json();
-        // Parse JSON strings to objects/arrays for exercises
-        const parsedData = data.map(act => {
-          if (act.exercises && Array.isArray(act.exercises)) {
-            act.exercises = act.exercises.map(ex => {
-              let parsedAnswers = ex.correct_answers;
-              let parsedOptions = ex.options;
+  const handlePrevExercise = () => {
+    if (!activeLesson) return;
 
-              if (typeof parsedAnswers === 'string') {
-                try { parsedAnswers = JSON.parse(parsedAnswers); } catch (e) { }
-              }
-              if (typeof parsedOptions === 'string') {
-                try { parsedOptions = JSON.parse(parsedOptions); } catch (e) { }
-              }
-              return { ...ex, correct_answers: parsedAnswers || {}, options: parsedOptions || [] };
-            });
-          }
-          return act;
-        });
-        setActivities(parsedData);
-      }
-    } catch (err) { console.error("Error fetching activities:", err); }
-  }
-
-  const handleCreateActivity = async (e) => {
-    e.preventDefault();
-    try {
-      const response = await fetch('/api/generics/', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Token ${token}`
-        },
-        body: JSON.stringify({
-          title: activityTitle,
-          description: activityDesc,
-          activity_type: activityType,
-          pages: activityPages
-        }),
-      });
-
-      if (response.ok) {
-        setIsNewActivityOpen(false);
-        resetActivityForm();
-        fetchActivities(token);
-      }
-    } catch (err) { console.error("Error creating activity:", err); }
-  }
-
-  const handleUpdateActivity = async (e) => {
-    e.preventDefault();
-    try {
-      const response = await fetch(`/api/generics/${editingActivity.id}/`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Token ${token}`
-        },
-        body: JSON.stringify({
-          title: activityTitle,
-          description: activityDesc,
-          activity_type: activityType,
-          pages: activityPages
-        }),
-      });
-
-      if (response.ok) {
-        setEditingActivity(null);
-        resetActivityForm();
-        fetchActivities(token);
-      }
-    } catch (err) { console.error("Error updating activity:", err); }
-  }
-
-  const handleDeleteActivity = async (id) => {
-    if (!window.confirm("¿Seguro que quieres eliminar esta actividad?")) return;
-    try {
-      const response = await fetch(`/api/generics/${id}/`, {
-        method: 'DELETE',
-        headers: { 'Authorization': `Token ${token}` }
-      });
-      if (response.ok) fetchActivities(token);
-    } catch (err) { console.error("Error deleting activity:", err); }
-  }
-
-  const handleAddPageToForm = () => {
-    setActivityPages([...activityPages, {
-      page_number: activityPages.length + 1,
-      layout: 'cloze_drag_drop',
-      instructions: 'Completa los huecos',
-      exercises: []
-    }]);
-  }
-
-  const handleAddExerciseToPage = (pageIndex) => {
-    const updated = [...activityPages];
-    updated[pageIndex].exercises.push({
-      content: "Translate: I {gap1} a student.",
-      interaction_type: "text_input",
-      correct_answers: { gap1: "am" },
-      options: [],
-      order: updated[pageIndex].exercises.length
-    });
-    setActivityPages(updated);
-  }
-
-  const handleUpdatePageInForm = (pageIndex, field, value) => {
-    const updated = [...activityPages];
-    updated[pageIndex][field] = value;
-    setActivityPages(updated);
-  }
-
-  const handleUpdateExerciseInForm = (pageIndex, exIndex, field, value) => {
-    const updated = [...activityPages];
-    if (field === 'correct_answers' || field === 'options') {
-      try {
-        updated[pageIndex].exercises[exIndex][field] = JSON.parse(value);
-      } catch (e) {
-        updated[pageIndex].exercises[exIndex][field] = value;
-      }
-    } else {
-      updated[pageIndex].exercises[exIndex][field] = value;
+    if (currentExerciseIdx > 0) {
+      // Prev exercise in same page
+      setCurrentExerciseIdx(prev => prev - 1)
+    } else if (currentPageIdx > 0) {
+      // Prev page
+      const prevPageIdx = currentPageIdx - 1
+      const prevPage = activeLesson.pages[prevPageIdx]
+      setCurrentPageIdx(prevPageIdx)
+      setCurrentExerciseIdx(prevPage?.exercises?.length ? prevPage.exercises.length - 1 : 0)
     }
-    setActivityPages(updated);
-  }
-
-  const handleRemovePageFromForm = (pageIndex) => {
-    setActivityPages(activityPages.filter((_, i) => i !== pageIndex));
-  }
-
-  const handleRemoveExerciseFromForm = (pageIndex, exIndex) => {
-    const updated = [...activityPages];
-    updated[pageIndex].exercises = updated[pageIndex].exercises.filter((_, i) => i !== exIndex);
-    setActivityPages(updated);
-  }
-
-  const generateGapsFromText = (pageIndex, exIndex, text, interactionType) => {
-    let newText = text;
-    let newAnswers = {};
-    let newOptions = [];
-    let gapCounter = 1;
-
-    const matches = [...text.matchAll(/\{([^}]+)\}/g)];
-
-    if (matches.length > 0 && !text.includes('{gap1}')) {
-      matches.forEach(match => {
-        const gapKey = `gap${gapCounter}`;
-        const answer = match[1].trim();
-        newText = newText.replace(match[0], `{${gapKey}}`);
-        newAnswers[gapKey] = answer;
-        if (!newOptions.includes(answer)) newOptions.push(answer);
-        gapCounter++;
-      });
-
-      const updated = [...activityPages];
-      updated[pageIndex].exercises[exIndex].content = newText;
-      updated[pageIndex].exercises[exIndex].correct_answers = newAnswers;
-      if (interactionType === 'drag_and_drop') {
-        updated[pageIndex].exercises[exIndex].options = newOptions;
-      }
-      setActivityPages(updated);
-    } else {
-      alert("No se encontraron {respuestas} nuevas para parsear o el texto ya está procesado.");
-    }
-  }
-
-  const resetActivityForm = () => {
-    setActivityTitle(""); setActivityDesc(""); setActivityType("task"); setActivityPages([]);
   }
 
   const handleNextExercise = () => {
     if (!activeLesson) return;
-
-    // Check if it's a generic Activity (legacy structure)
-    if (activeLesson.exercises) {
-      if (currentExerciseIdx < activeLesson.exercises.length - 1) {
-        setCurrentExerciseIdx(prev => prev + 1)
-      } else {
-        setActiveLesson(null)
-        alert("¡Increíble! Has terminado la actividad.")
-      }
-      return;
-    }
 
     // New structure: Lesson -> Pages -> Exercises
     const currentPage = activeLesson.pages[currentPageIdx];
@@ -459,17 +306,58 @@ function App() {
       setCurrentPageIdx(prev => prev + 1)
       setCurrentExerciseIdx(0)
     } else {
-      // Finished lesson
-      setActiveLesson(null)
-      alert("¡Increíble! Has terminado la lección.")
-      fetchUserStats(); // Refresh stats to show new medals
+      // Finished lesson - Evaluate!
+      evaluateLesson()
+    }
+  }
+
+  const evaluateLesson = () => {
+    if (!activeLesson) return;
+
+    let totalGaps = 0;
+    let correctGaps = 0;
+
+    activeLesson.pages.forEach(page => {
+      page.exercises?.forEach(ex => {
+        const userAnswers = lessonAnswers[ex.id] || {};
+        const correctAnswers = ex.correct_answers || {};
+
+        Object.keys(correctAnswers).forEach(gapKey => {
+          totalGaps++;
+          const userVal = (userAnswers[gapKey] || "").trim().toLowerCase();
+          const correctVal = String(correctAnswers[gapKey]).toLowerCase();
+          if (userVal === correctVal) {
+            correctGaps++;
+          }
+        });
+      });
+    });
+
+    const score = totalGaps > 0 ? (correctGaps / totalGaps) * 100 : 0;
+    setLessonSummary({ score, correct: correctGaps, total: totalGaps });
+    setShowResults(true);
+
+    // Persist Lesson Attempt
+    if (token && activeLesson.id) {
+      fetch('/api/attempts/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Token ${token}` },
+        body: JSON.stringify({
+          lesson: activeLesson.id,
+          score: score,
+          answers: lessonAnswers,
+          is_correct: score >= 80,
+          start_time: new Date().toISOString(), // Simplified lesson start time
+        })
+      }).then(() => fetchUserStats());
+    } else {
+      fetchUserStats();
     }
   }
 
   // Helper to determine what to render
   const getCurrentExercise = () => {
     if (!activeLesson) return null;
-    if (activeLesson.exercises) return activeLesson.exercises[currentExerciseIdx]; // Generic Activity
     if (activeLesson.pages) {
       const page = activeLesson.pages[currentPageIdx];
       return page?.exercises?.[currentExerciseIdx];
@@ -479,7 +367,6 @@ function App() {
 
   const getTotalCount = () => {
     if (!activeLesson) return 0;
-    if (activeLesson.exercises) return activeLesson.exercises.length;
     if (activeLesson.pages) {
       return activeLesson.pages.reduce((acc, page) => acc + (page.exercises?.length || 0), 0);
     }
@@ -488,7 +375,6 @@ function App() {
 
   const getProgressLabel = () => {
     if (!activeLesson) return "";
-    if (activeLesson.exercises) return `Ejercicio ${currentExerciseIdx + 1} de ${activeLesson.exercises.length}`;
     if (activeLesson.pages) {
       const page = activeLesson.pages[currentPageIdx];
       return `Página ${currentPageIdx + 1} de ${activeLesson.pages.length} - Ejercicio ${currentExerciseIdx + 1} de ${page?.exercises?.length || 0}`;
@@ -537,11 +423,187 @@ function App() {
   }
 
   const handleLogout = () => {
-    setUser(null); setToken(""); setLessons([]); setActivities([]); setActiveLesson(null);
+    setUser(null); setToken(""); setLessons([]); setActiveLesson(null);
     localStorage.removeItem('token');
   }
 
+  const handleUpdateLesson = async (e) => {
+    e.preventDefault();
+    try {
+      const response = await fetch(`/api/lessons/${editingLessonMeta.id}/`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Token ${token}` },
+        body: JSON.stringify(editingLessonMeta),
+      });
+      if (response.ok) {
+        setEditingLessonMeta(null);
+        fetchLessons(token);
+      }
+    } catch (err) { console.error("Error updating lesson:", err); }
+  }
 
+  const handleImportJSON = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+      try {
+        const lessonData = JSON.parse(event.target.result);
+
+        // 1. Create Lesson
+        const resLesson = await fetch('/api/lessons/', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Token ${token}` },
+          body: JSON.stringify({ title: lessonData.title, description: lessonData.description || "" }),
+        });
+        if (!resLesson.ok) throw new Error("Failed to create lesson");
+        const newLesson = await resLesson.json();
+
+        // 2. Create Pages & Exercises
+        if (lessonData.pages && Array.isArray(lessonData.pages)) {
+          for (const page of lessonData.pages) {
+            const resPage = await fetch('/api/pages/', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', 'Authorization': `Token ${token}` },
+              body: JSON.stringify({
+                lesson: newLesson.id,
+                page_number: page.page_number || 1,
+                instructions: page.instructions || ""
+              }),
+            });
+            if (!resPage.ok) continue;
+            const newPage = await resPage.json();
+
+            if (page.exercises && Array.isArray(page.exercises)) {
+              for (const ex of page.exercises) {
+                const { content, correct_answers } = parseExerciseContent(ex.content);
+                await fetch('/api/exercises/', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json', 'Authorization': `Token ${token}` },
+                  body: JSON.stringify({
+                    page: newPage.id,
+                    content: content,
+                    interaction_type: ex.interaction_type || 'text_input',
+                    correct_answers: JSON.stringify(correct_answers),
+                    options: JSON.stringify(Object.values(correct_answers))
+                  }),
+                });
+              }
+            }
+          }
+        }
+        fetchLessons(token);
+        alert("¡Lección importada con éxito!");
+      } catch (err) {
+        console.error("Error importing JSON:", err);
+        alert("Error al importar el archivo JSON. Revisa el formato.");
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = null; // Reset input
+  }
+
+  const handleCreateLesson = async (e) => {
+    e.preventDefault();
+    try {
+      const response = await fetch('/api/lessons/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Token ${token}` },
+        body: JSON.stringify(newLessonData),
+      });
+      if (response.ok) {
+        setIsNewLessonOpen(false);
+        setNewLessonData({ title: "", description: "" });
+        fetchLessons(token);
+      }
+    } catch (err) { console.error("Error creating lesson:", err); }
+  }
+
+  const handleDeleteLesson = async (id) => {
+    if (!window.confirm("¿Seguro que quieres eliminar esta lección?")) return;
+    try {
+      const response = await fetch(`/api/lessons/${id}/`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Token ${token}` },
+      });
+      if (response.ok) fetchLessons(token);
+    } catch (err) { console.error("Error deleting lesson:", err); }
+  }
+
+  const handleAddPage = async (lessonId) => {
+    const pageNumber = lessons.find(l => l.id === lessonId)?.pages?.length + 1 || 1;
+    try {
+      const response = await fetch('/api/pages/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Token ${token}` },
+        body: JSON.stringify({ lesson: lessonId, page_number: pageNumber, layout: 'cloze_drag_drop' }),
+      });
+      if (response.ok) fetchLessons(token);
+    } catch (err) { console.error("Error adding page:", err); }
+  }
+
+  const handleDeletePage = async (pageId) => {
+    if (!window.confirm("¿Seguro que quieres eliminar esta página y todos sus ejercicios?")) return;
+    try {
+      const response = await fetch(`/api/pages/${pageId}/`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Token ${token}` },
+      });
+      if (response.ok) fetchLessons(token);
+    } catch (err) { console.error("Error deleting page:", err); }
+  }
+
+  const handleCreateExercise = async (e, pageId) => {
+    e.preventDefault();
+    const rawContent = e.target.content.value;
+    const type = e.target.type.value;
+    const { content, correct_answers } = parseExerciseContent(rawContent);
+    const options = type === 'drag_and_drop' ? e.target.options.value.split(',').map(o => o.trim()) : [];
+
+    const payload = {
+      page: pageId,
+      content,
+      interaction_type: type,
+      correct_answers,
+      options: options.length > 0 ? options : Object.values(correct_answers)
+    };
+
+    try {
+      const method = editingExercise ? 'PATCH' : 'POST';
+      const url = editingExercise ? `/api/exercises/${editingExercise.id}/` : '/api/exercises/';
+      const response = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Token ${token}` },
+        body: JSON.stringify(payload),
+      });
+      if (response.ok) {
+        setIsNewExerciseOpen(false);
+        setEditingExercise(null);
+        fetchLessons(token);
+      }
+    } catch (err) { console.error("Error saving exercise:", err); }
+  }
+
+  const handleDeleteExercise = async (id) => {
+    if (!window.confirm("¿Seguro que quieres eliminar este ejercicio?")) return;
+    try {
+      const response = await fetch(`/api/exercises/${id}/`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Token ${token}` },
+      });
+      if (response.ok) fetchLessons(token);
+    } catch (err) { console.error("Error deleting exercise:", err); }
+  }
+
+  const getRawContentFromExercise = (ex) => {
+    if (!ex || !ex.content) return "";
+    let raw = ex.content;
+    Object.keys(ex.correct_answers || {}).forEach(gapKey => {
+      raw = raw.replace(`{${gapKey}}`, `{${ex.correct_answers[gapKey]}}`);
+    });
+    return raw;
+  }
 
   const openSignup = () => { setAuthStatus(null); setUsername(""); setPassword(""); setEmail(""); setIsSignupOpen(true); setIsLoginOpen(false); }
   const openLogin = () => { setAuthStatus(null); setUsername(""); setPassword(""); setIsLoginOpen(true); setIsSignupOpen(false); }
@@ -581,200 +643,245 @@ function App() {
             </>
           ) : activeLesson ? (
             <div style={{ textAlign: 'center', padding: '1rem' }}>
-              <div style={{ marginBottom: '2rem' }}>
-                <span className="badge">{getProgressLabel()}</span>
-                <h2 style={{ marginTop: '0.8rem' }}>{activeLesson.title}</h2>
-              </div>
+              {showResults ? (
+                <div style={{ animation: 'fadeIn 0.5s ease' }}>
+                  <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>
+                    {lessonSummary.score >= 100 ? "🏆" : lessonSummary.score >= 70 ? "🌟" : "📚"}
+                  </div>
+                  <h1>¡Lección Completada!</h1>
+                  <div style={{ marginTop: '2rem', marginBottom: '2rem' }}>
+                    <div style={{ fontSize: '3rem', fontWeight: 'bold', color: 'var(--primary)' }}>
+                      {lessonSummary.score.toFixed(0)}%
+                    </div>
+                    <p style={{ opacity: 0.7 }}>Has acertado {lessonSummary.correct} de {lessonSummary.total} preguntas.</p>
+                  </div>
 
-              {getCurrentExercise() ? (
-                <ExerciseRenderer
-                  key={getCurrentExercise().id || currentExerciseIdx} // Force remount on exercise change
-                  exercise={getCurrentExercise()}
-                  onComplete={handleNextExercise}
-                  token={token}
-                />
-              ) : (
-                <div style={{ padding: '2rem', opacity: 0.7 }}>
-                  No hay ejercicios configurados en esta capa. Avanza a la siguiente.
-                  <br /><br />
-                  <button className="btn btn-primary" onClick={handleNextExercise}>Continuar</button>
+                  <div className="glass-container" style={{ padding: '2rem', marginBottom: '2rem', background: 'rgba(255,255,255,0.03)' }}>
+                    <h3>{lessonSummary.score === 100 ? "¡Desempeño Perfecto!" : lessonSummary.score >= 70 ? "¡Buen trabajo!" : "Sigue practicando"}</h3>
+                    <p style={{ fontSize: '0.9rem', opacity: 0.8 }}>Tu progreso ha sido guardado. Sigue así para desbloquear más medallas.</p>
+                  </div>
+
+                  <button
+                    className="btn btn-primary"
+                    style={{ width: '100%', padding: '1rem' }}
+                    onClick={() => {
+                      setActiveLesson(null);
+                      setShowResults(false);
+                      setLessonAnswers({});
+                      setCurrentPageIdx(0);
+                      setCurrentExerciseIdx(0);
+                    }}
+                  >
+                    Volver al Inicio
+                  </button>
                 </div>
-              )}
+              ) : (
+                <>
+                  <div style={{ marginBottom: '2rem' }}>
+                    <span className="badge">{getProgressLabel()}</span>
+                    <h2 style={{ marginTop: '0.8rem' }}>{activeLesson.title}</h2>
+                  </div>
 
-              <button className="btn btn-secondary" style={{ marginTop: '2.5rem' }} onClick={() => { setActiveLesson(null); setCurrentPageIdx(0); setCurrentExerciseIdx(0); }}>Abandonar Lección</button>
+                  {getCurrentExercise() ? (
+                    <>
+                      <ExerciseRenderer
+                        key={getCurrentExercise().id || currentExerciseIdx} // Force remount on exercise change
+                        exercise={getCurrentExercise()}
+                        onComplete={handleNextExercise}
+                        token={token}
+                        initialInputs={lessonAnswers[getCurrentExercise().id] || {}}
+                        onAnswersChange={(newInputs) => setLessonAnswers(prev => ({ ...prev, [getCurrentExercise().id]: newInputs }))}
+                      />
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '2rem', gap: '1rem' }}>
+                        <button
+                          className="btn btn-secondary"
+                          style={{ flex: 1, opacity: (currentPageIdx === 0 && currentExerciseIdx === 0) ? 0.3 : 1 }}
+                          onClick={handlePrevExercise}
+                          disabled={currentPageIdx === 0 && currentExerciseIdx === 0}
+                        >
+                          Anterior
+                        </button>
+                        <button
+                          className="btn btn-secondary"
+                          style={{ flex: 1 }}
+                          onClick={handleNextExercise}
+                        >
+                          {(currentPageIdx === activeLesson.pages.length - 1 && currentExerciseIdx === (activeLesson.pages[currentPageIdx]?.exercises?.length - 1)) ? "Finalizar" : "Siguiente"}
+                        </button>
+                      </div>
+                    </>
+                  ) : (
+                    <div style={{ padding: '2rem', opacity: 0.7 }}>
+                      No hay ejercicios configurados en esta capa. Avanza a la siguiente.
+                      <br /><br />
+                      <button className="btn btn-primary" onClick={handleNextExercise}>Continuar</button>
+                    </div>
+                  )}
+
+                  <button className="btn btn-secondary" style={{ marginTop: '2.5rem' }} onClick={() => { setActiveLesson(null); setCurrentPageIdx(0); setCurrentExerciseIdx(0); setLessonAnswers({}); setShowResults(false); }}>Abandonar Lección</button>
+                </>
+              )}
             </div>
           ) : (
             <>
               <div style={{ marginBottom: '3rem' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <h2>Mis Lecciones</h2>
-                  <span style={{ opacity: 0.5, fontSize: '0.9rem' }}>{lessons.length} disponibles</span>
-                </div>
-                <div className="features-grid" style={{ marginTop: '1.5rem', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))' }}>
-                  {lessons.map(lesson => (
-                    <div key={lesson.id} className="feature-card clickable" onClick={() => { setActiveLesson(lesson); setCurrentPageIdx(0); setCurrentExerciseIdx(0); }}>
-                      <div className="feature-icon">🎓</div>
-                      <h3 className="feature-title">{lesson.title}</h3>
-                      <p className="feature-desc">{lesson.description || `${lesson.pages?.length || 0} páginas interactivas`}</p>
-                      <div style={{ marginTop: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--primary)', fontWeight: '600' }}>
-                        Empezar <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path d="M5 12h14M12 5l7 7-7 7" /></svg>
-                      </div>
-                    </div>
-                  ))}
-                  {lessons.length === 0 && <div className="empty-state">No hay lecciones. Cárgalas desde el panel de admin de Django.</div>}
-                </div>
-              </div>
-
-              <div style={{ borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: '2.5rem' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-                  <h2 style={{ margin: 0 }}>Tareas del día</h2>
                   {user.role === 'creator' && (
-                    <button className="btn btn-primary" onClick={() => { resetActivityForm(); setIsNewActivityOpen(true); }}>+ Nueva Tarea</button>
+                    <div style={{ display: 'flex', gap: '1rem' }}>
+                      <button className="btn btn-primary" onClick={() => setIsNewLessonOpen(true)}>+ Nueva Lección</button>
+                      <label className="btn btn-secondary" style={{ cursor: 'pointer', margin: 0 }}>
+                        📤 Importar JSON
+                        <input type="file" accept=".json" onChange={handleImportJSON} style={{ display: 'none' }} />
+                      </label>
+                    </div>
+                  )}
+                  {user.role === 'student' && (
+                    <span style={{ opacity: 0.5, fontSize: '0.9rem' }}>{lessons.length} disponibles</span>
                   )}
                 </div>
-                <div className="features-grid" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))' }}>
-                  {activities.map(act => (
-                    <div
-                      key={act.id}
-                      className={`feature-card compact ${act.pages?.length > 0 ? 'clickable' : ''}`}
-                      onClick={() => {
-                        if (act.pages?.length > 0) {
-                          setActiveLesson(act);
-                          setCurrentPageIdx(0);
-                          setCurrentExerciseIdx(0);
-                        }
-                      }}
-                    >
-                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                        <h4 style={{ margin: 0 }}>{act.title}</h4>
-                        {user.role === 'creator' && (
+
+                {user.role === 'creator' ? (
+                  <div style={{ marginTop: '2rem' }}>
+                    {lessons.map(lesson => (
+                      <div key={lesson.id} className="glass-container" style={{ marginBottom: '1.5rem', padding: '1.5rem' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <div>
+                            <h3 style={{ margin: 0 }}>{lesson.title}</h3>
+                            <p style={{ opacity: 0.7, margin: '0.5rem 0' }}>{lesson.description}</p>
+                          </div>
                           <div style={{ display: 'flex', gap: '0.5rem' }}>
-                            <button onClick={(e) => { e.stopPropagation(); setEditingActivity(act); setActivityTitle(act.title); setActivityDesc(act.description); setActivityType(act.activity_type); setActivityPages(act.pages || []); }} className="icon-btn">✏️</button>
-                            <button onClick={(e) => { e.stopPropagation(); handleDeleteActivity(act.id); }} className="icon-btn">🗑️</button>
+                            <button className="icon-btn" onClick={() => setActivePageForEdit(lesson.id === activePageForEdit ? null : lesson.id)}>
+                              {activePageForEdit === lesson.id ? "🔼" : "⚙️"}
+                            </button>
+                            <button className="icon-btn" onClick={() => setEditingLessonMeta(lesson)}>✏️</button>
+                            <button className="icon-btn" onClick={() => handleDeleteLesson(lesson.id)}>🗑️</button>
+                          </div>
+                        </div>
+
+                        {activePageForEdit === lesson.id && (
+                          <div style={{ marginTop: '1.5rem', borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: '1rem' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                              <h4>Páginas y Ejercicios</h4>
+                              <button className="btn btn-secondary" style={{ fontSize: '0.8rem' }} onClick={() => handleAddPage(lesson.id)}>+ Añadir Página</button>
+                            </div>
+                            {lesson.pages?.map(page => (
+                              <div key={page.id} style={{ background: 'rgba(255,255,255,0.05)', padding: '1rem', borderRadius: '12px', marginBottom: '1rem' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                  <span>Página {page.page_number} ({page.layout})</span>
+                                  <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                    <button className="btn btn-secondary" style={{ fontSize: '0.7rem' }} onClick={() => setIsNewExerciseOpen(page.id)}>+ Ejercicio</button>
+                                    <button className="icon-btn" onClick={() => handleDeletePage(page.id)} style={{ fontSize: '0.8rem' }}>🗑️</button>
+                                  </div>
+                                </div>
+                                <div style={{ marginTop: '0.5rem' }}>
+                                  {page.exercises?.map(ex => (
+                                    <div key={ex.id} style={{ fontSize: '0.9rem', opacity: 0.8, padding: '0.5rem 0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(255,255,255,0.03)' }}>
+                                      <span>• {ex.content} <span style={{ opacity: 0.5 }}>({ex.interaction_type})</span></span>
+                                      <div style={{ display: 'flex', gap: '0.4rem' }}>
+                                        <button className="icon-btn" style={{ fontSize: '0.8rem' }} onClick={() => { setEditingExercise(ex); setIsNewExerciseOpen(page.id); }}>✏️</button>
+                                        <button className="icon-btn" style={{ fontSize: '0.8rem' }} onClick={() => handleDeleteExercise(ex.id)}>🗑️</button>
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+
+                                {isNewExerciseOpen === page.id && (
+                                  <div className="modal-overlay">
+                                    <div className="modal-content glass-container" style={{ maxWidth: '500px' }}>
+                                      <h3>{editingExercise ? "Editar Ejercicio" : "Nuevo Ejercicio"} (Página {page.page_number})</h3>
+                                      <p style={{ fontSize: '0.8rem', opacity: 0.7 }}>Usa {"{respuesta}"} en el contenido. El sistema lo convertirá a hueco automáticamente.</p>
+                                      <form onSubmit={(e) => handleCreateExercise(e, page.id)} className="modal-form">
+                                        <label className="form-label">Contenido</label>
+                                        <textarea
+                                          name="content"
+                                          className="form-input"
+                                          style={{ minHeight: '100px' }}
+                                          placeholder="Ej: El sol es {amarillo}."
+                                          required
+                                          defaultValue={editingExercise ? getRawContentFromExercise(editingExercise) : ""}
+                                        />
+                                        <label className="form-label">Tipo</label>
+                                        <select name="type" className="form-input" defaultValue={editingExercise?.interaction_type || "text_input"}>
+                                          <option value="text_input">Escribir</option>
+                                          <option value="drag_and_drop">Arrastrar</option>
+                                        </select>
+                                        <label className="form-label">Opciones Extras (Separadas por coma, solo para Arrastrar)</label>
+                                        <input
+                                          name="options"
+                                          className="form-input"
+                                          placeholder="Opcional: azul, verde, rojo"
+                                          defaultValue={editingExercise?.options?.join(', ') || ""}
+                                        />
+                                        <div style={{ display: 'flex', gap: '1rem', marginTop: '1rem' }}>
+                                          <button type="button" className="btn btn-secondary" style={{ flex: 1 }} onClick={() => { setIsNewExerciseOpen(false); setEditingExercise(null); }}>Cancelar</button>
+                                          <button type="submit" className="btn btn-primary" style={{ flex: 1 }}>{editingExercise ? "Actualizar" : "Guardar"}</button>
+                                        </div>
+                                      </form>
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            ))}
                           </div>
                         )}
                       </div>
-                      <p style={{ margin: '0.5rem 0', fontSize: '0.85rem', opacity: 0.7 }}>{act.description}</p>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <span className="badge-small">{act.activity_type}</span>
-                        {act.pages?.length > 0 && (
-                          <span style={{ fontSize: '0.7rem', color: 'var(--primary)', fontWeight: 'bold' }}>{act.pages.length} pág.</span>
-                        )}
+                    ))}
+                  </div>
+                ) : (
+                  <div className="features-grid" style={{ marginTop: '1.5rem', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))' }}>
+                    {lessons.map(lesson => (
+                      <div key={lesson.id} className="feature-card clickable" onClick={() => { setActiveLesson(lesson); setCurrentPageIdx(0); setCurrentExerciseIdx(0); }}>
+                        <div className="feature-icon">🎓</div>
+                        <h3 className="feature-title">{lesson.title}</h3>
+                        <p className="feature-desc">{lesson.description || `${lesson.pages?.length || 0} páginas interactivas`}</p>
+                        <div style={{ marginTop: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--primary)', fontWeight: '600' }}>
+                          Empezar <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3"><path d="M5 12h14M12 5l7 7-7 7" /></svg>
+                        </div>
                       </div>
-                    </div>
-                  ))}
-                  {activities.length === 0 && <p style={{ opacity: 0.5 }}>No hay tareas pendientes.</p>}
-                </div>
+                    ))}
+                  </div>
+                )}
+
+                {lessons.length === 0 && <div className="empty-state">No hay lecciones. {user.role === 'creator' ? 'Crea una ahora.' : 'Espera a que un creador las publique.'}</div>}
               </div>
             </>
           )}
         </div>
       </main>
 
-      {/* Activity Modals */}
-      {(isNewActivityOpen || editingActivity) && (
+      {/* New Lesson Modal */}
+      {isNewLessonOpen && (
         <div className="modal-overlay">
-          <div className="modal-content glass-container" style={{ margin: '2rem auto', maxWidth: '600px', maxHeight: '90vh', overflowY: 'auto' }}>
-            <h2 style={{ marginBottom: '1.5rem' }}>{editingActivity ? 'Editar Tarea' : 'Nueva Tarea'}</h2>
-            <form onSubmit={editingActivity ? handleUpdateActivity : handleCreateActivity} className="modal-form">
+          <div className="modal-content glass-container" style={{ margin: '2rem auto', maxWidth: '400px' }}>
+            <h2>Nueva Lección</h2>
+            <form onSubmit={handleCreateLesson} className="modal-form">
               <label className="form-label">Título</label>
-              <input type="text" value={activityTitle} onChange={(e) => setActivityTitle(e.target.value)} required className="form-input" />
+              <input type="text" value={newLessonData.title} onChange={(e) => setNewLessonData({ ...newLessonData, title: e.target.value })} required className="form-input" />
               <label className="form-label">Descripción</label>
-              <textarea value={activityDesc} onChange={(e) => setActivityDesc(e.target.value)} className="form-input" style={{ minHeight: '60px' }} />
-              <label className="form-label">Tipo</label>
-              <select value={activityType} onChange={(e) => setActivityType(e.target.value)} className="form-input">
-                <option value="task">Tarea</option>
-                <option value="quiz">Cuestionario</option>
-                <option value="exercise">Práctica</option>
-              </select>
-
-              <div style={{ marginTop: '1.5rem', borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: '1rem' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-                  <h3 style={{ margin: 0, fontSize: '1.1rem' }}>Páginas ({activityPages.length})</h3>
-                  <button type="button" className="btn btn-secondary" style={{ padding: '0.3rem 0.8rem', fontSize: '0.8rem' }} onClick={handleAddPageToForm}>+ Añadir Página</button>
-                </div>
-
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                  {activityPages.map((page, pageIndex) => (
-                    <div key={pageIndex} style={{ background: 'rgba(255,255,255,0.03)', padding: '1rem', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.05)' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem' }}>
-                        <span style={{ fontWeight: 'bold', fontSize: '1rem', color: 'var(--primary)' }}>Página #{pageIndex + 1}</span>
-                        <div style={{ display: 'flex', gap: '0.5rem' }}>
-                          <button type="button" onClick={() => handleAddExerciseToPage(pageIndex)} className="btn btn-secondary" style={{ padding: '0.2rem 0.6rem', fontSize: '0.8rem' }}>+ Ejercicio</button>
-                          <button type="button" onClick={() => handleRemovePageFromForm(pageIndex)} style={{ background: 'none', border: 'none', cursor: 'pointer', opacity: 0.6 }}>🗑️</button>
-                        </div>
-                      </div>
-
-                      {/* Display Page Exercises */}
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginLeft: '1rem', borderLeft: '2px solid rgba(255,255,255,0.1)', paddingLeft: '1rem' }}>
-                        {page.exercises && page.exercises.map((ex, exIndex) => (
-                          <div key={exIndex} style={{ background: 'rgba(0,0,0,0.2)', padding: '0.8rem', borderRadius: '8px' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
-                              <span style={{ fontSize: '0.85rem', opacity: 0.8 }}>Ejercicio #{exIndex + 1}</span>
-                              <button type="button" onClick={() => handleRemoveExerciseFromForm(pageIndex, exIndex)} style={{ background: 'none', border: 'none', cursor: 'pointer', opacity: 0.6, fontSize: '0.8rem' }}>❌</button>
-                            </div>
-
-                            <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.5rem' }}>
-                              <input
-                                type="text"
-                                placeholder="Contenido (ej: I {am} a student)"
-                                value={ex.content}
-                                onChange={(e) => handleUpdateExerciseInForm(pageIndex, exIndex, 'content', e.target.value)}
-                                className="form-input"
-                                style={{ flex: 1, fontSize: '0.85rem' }}
-                              />
-                              <button
-                                type="button"
-                                className="btn btn-secondary"
-                                onClick={() => generateGapsFromText(pageIndex, exIndex, ex.content, ex.interaction_type)}
-                                style={{ padding: '0.3rem 0.6rem', fontSize: '0.75rem' }}
-                              >
-                                Parser Huecos
-                              </button>
-                            </div>
-                            <div style={{ display: 'flex', gap: '0.5rem' }}>
-                              <select
-                                value={ex.interaction_type}
-                                onChange={(e) => handleUpdateExerciseInForm(pageIndex, exIndex, 'interaction_type', e.target.value)}
-                                className="form-input"
-                                style={{ flex: 1, fontSize: '0.85rem' }}
-                              >
-                                <option value="text_input">Escribir</option>
-                                <option value="drag_and_drop">Arrastrar</option>
-                              </select>
-                              <input
-                                type="text"
-                                placeholder='Respuestas (JSON)'
-                                value={typeof ex.correct_answers === 'object' ? JSON.stringify(ex.correct_answers) : ex.correct_answers}
-                                onChange={(e) => handleUpdateExerciseInForm(pageIndex, exIndex, 'correct_answers', e.target.value)}
-                                className="form-input"
-                                style={{ flex: 2, fontSize: '0.85rem' }}
-                              />
-                            </div>
-                            {ex.interaction_type === 'drag_and_drop' && (
-                              <input
-                                type="text"
-                                placeholder='Opciones (JSON array)'
-                                value={typeof ex.options === 'object' ? JSON.stringify(ex.options) : ex.options}
-                                onChange={(e) => handleUpdateExerciseInForm(pageIndex, exIndex, 'options', e.target.value)}
-                                className="form-input"
-                                style={{ fontSize: '0.85rem', marginTop: '0.5rem', width: '100%' }}
-                              />
-                            )}
-                          </div>
-                        ))}
-                        {(!page.exercises || page.exercises.length === 0) && (
-                          <span style={{ fontSize: '0.8rem', opacity: 0.5 }}>Esta página está vacía. Añade un ejercicio.</span>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
+              <textarea value={newLessonData.description} onChange={(e) => setNewLessonData({ ...newLessonData, description: e.target.value })} className="form-input" />
+              <div style={{ display: 'flex', gap: '1rem', marginTop: '1.5rem' }}>
+                <button type="button" className="btn btn-secondary" style={{ flex: 1 }} onClick={() => setIsNewLessonOpen(false)}>Cancelar</button>
+                <button type="submit" className="btn btn-primary" style={{ flex: 1 }}>Crear</button>
               </div>
+            </form>
+          </div>
+        </div>
+      )}
 
-              <div style={{ display: 'flex', gap: '1rem', marginTop: '2rem', position: 'sticky', bottom: 0, background: 'var(--bg-color)', paddingTop: '1rem', borderTop: '1px solid rgba(255,255,255,0.1)' }}>
-                <button type="button" className="btn btn-secondary" style={{ flex: 1 }} onClick={() => { setIsNewActivityOpen(false); setEditingActivity(null); }}>Cancelar</button>
-                <button type="submit" className="btn btn-primary" style={{ flex: 1 }}>{editingActivity ? 'Guardar' : 'Crear'}</button>
+      {/* Edit Lesson Metadata Modal */}
+      {editingLessonMeta && (
+        <div className="modal-overlay">
+          <div className="modal-content glass-container" style={{ margin: '2rem auto', maxWidth: '400px' }}>
+            <h2>Editar Lección</h2>
+            <form onSubmit={handleUpdateLesson} className="modal-form">
+              <label className="form-label">Título</label>
+              <input type="text" value={editingLessonMeta.title} onChange={(e) => setEditingLessonMeta({ ...editingLessonMeta, title: e.target.value })} required className="form-input" />
+              <label className="form-label">Descripción</label>
+              <textarea value={editingLessonMeta.description || ""} onChange={(e) => setEditingLessonMeta({ ...editingLessonMeta, description: e.target.value })} className="form-input" />
+              <div style={{ display: 'flex', gap: '1rem', marginTop: '1.5rem' }}>
+                <button type="button" className="btn btn-secondary" style={{ flex: 1 }} onClick={() => setEditingLessonMeta(null)}>Cancelar</button>
+                <button type="submit" className="btn btn-primary" style={{ flex: 1 }}>Actualizar</button>
               </div>
             </form>
           </div>
@@ -851,19 +958,24 @@ function App() {
               <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
                 <thead>
                   <tr style={{ background: 'rgba(255,255,255,0.05)' }}>
-                    <th style={{ padding: '0.8rem' }}>Fecha</th>
-                    <th style={{ padding: '0.8rem' }}>Tiempo</th>
-                    <th style={{ padding: '0.8rem' }}>Puntaje</th>
-                    <th style={{ padding: '0.8rem' }}>Resultado</th>
+                    <th style={{ textAlign: 'left', padding: '1rem' }}>Objetivo / Fecha</th>
+                    <th style={{ textAlign: 'center', padding: '1rem' }}>Tiempo</th>
+                    <th style={{ textAlign: 'center', padding: '1rem' }}>Puntaje</th>
+                    <th style={{ textAlign: 'center', padding: '1rem' }}>Resultado</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {userStats.attempts?.length > 0 ? userStats.attempts.map((att, i) => (
-                    <tr key={i} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-                      <td style={{ padding: '0.8rem' }}>{new Date(att.start_time).toLocaleString()}</td>
-                      <td style={{ padding: '0.8rem' }}>{att.time_taken_seconds?.toFixed(1) || '?'}s</td>
-                      <td style={{ padding: '0.8rem' }}>{att.score?.toFixed(0)}%</td>
-                      <td style={{ padding: '0.8rem' }}>
+                  {userStats.attempts?.length > 0 ? userStats.attempts.map(att => (
+                    <tr key={att.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                      <td style={{ padding: '1rem', fontSize: '0.85rem' }}>
+                        <div style={{ fontWeight: 'bold', color: att.lesson ? 'var(--primary)' : 'inherit' }}>
+                          {att.lesson ? `🎓 Lección: ${att.lesson_title}` : `📝 Ejercicio ${att.exercise}`}
+                        </div>
+                        <div style={{ opacity: 0.5, fontSize: '0.75rem' }}>{new Date(att.end_time).toLocaleString()}</div>
+                      </td>
+                      <td style={{ textAlign: 'center', padding: '1rem' }}>{att.time_taken_seconds.toFixed(1)}s</td>
+                      <td style={{ textAlign: 'center', padding: '1rem' }}>{att.score?.toFixed(0)}%</td>
+                      <td style={{ textAlign: 'center', padding: '1rem' }}>
                         {att.is_correct ? <span className="badge-small" style={{ background: 'rgba(16, 185, 129, 0.2)', color: '#10b981' }}>Perfecto</span>
                           : <span className="badge-small" style={{ background: 'rgba(239, 68, 68, 0.2)', color: '#ef4444' }}>Fallido</span>}
                       </td>

@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Lesson, Page, Exercise, Activity, Attempt, Achievement, UserAchievement, StudentProgress
+from .models import Lesson, Page, Exercise, Attempt, Achievement, UserAchievement, StudentProgress
 
 class ExerciseInline(admin.TabularInline):
     model = Exercise
@@ -25,10 +25,7 @@ class ExerciseAdmin(admin.ModelAdmin):
     list_display = ('id', 'page', 'lesson', 'interaction_type', 'order')
     list_filter = ('interaction_type', 'page')
 
-@admin.register(Activity)
-class ActivityAdmin(admin.ModelAdmin):
-    list_display = ('title', 'activity_type', 'creator', 'created_at')
-    inlines = [ExerciseInline]
+
 
 @admin.register(Attempt)
 class AttemptAdmin(admin.ModelAdmin):

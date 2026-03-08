@@ -23,7 +23,6 @@ class Lesson(models.Model):
 
 class Page(models.Model):
     lesson = models.ForeignKey(Lesson, on_delete=models.CASCADE, related_name='pages', null=True, blank=True)
-    activity = models.ForeignKey('Activity', on_delete=models.CASCADE, related_name='pages', null=True, blank=True)
     page_number = models.PositiveIntegerField()
     layout = models.CharField(max_length=50, default='cloze_drag_drop')
     instructions = models.CharField(max_length=500, blank=True)
@@ -33,7 +32,7 @@ class Page(models.Model):
         ordering = ['lesson', 'page_number']
 
     def __str__(self):
-        return f"Página {self.page_number} de {self.lesson.title}"
+        return f"Página {self.page_number} de {self.lesson.title if self.lesson else 'Sin Lección'}"
 
 class Exercise(models.Model):
     INTERACTION_TYPES = [
@@ -57,14 +56,6 @@ class Exercise(models.Model):
         null=True,
         blank=True
     )
-    activity = models.ForeignKey(
-        'Activity',
-        on_delete=models.CASCADE,
-        related_name='exercises',
-        verbose_name="Actividad",
-        null=True,
-        blank=True
-    )
     content = models.TextField(verbose_name="Contenido (use {gap} para los huecos)")
     interaction_type = models.CharField(
         max_length=20,
@@ -85,39 +76,6 @@ class Exercise(models.Model):
     def __str__(self):
         return f"Ejercicio {self.id}"
 
-class Activity(models.Model):
-    ACTIVITY_TYPES = [
-        ('quiz', 'Cuestionario'),
-        ('task', 'Tarea'),
-        ('exercise', 'Ejercicio'),
-    ]
-
-    title = models.CharField(max_length=200, verbose_name="Título")
-    description = models.TextField(blank=True, verbose_name="Descripción")
-    activity_type = models.CharField(
-        max_length=20, 
-        choices=ACTIVITY_TYPES, 
-        default='task',
-        verbose_name="Tipo de Actividad"
-    )
-    creator = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
-        on_delete=models.CASCADE,
-        related_name='activities',
-        verbose_name="Creador"
-    )
-    created_at = models.DateTimeField(auto_now_add=True, verbose_name="Fecha de Creación")
-    updated_at = models.DateTimeField(auto_now=True, verbose_name="Última Actualización")
-
-    class Meta:
-        verbose_name = "Actividad Genérica"
-        verbose_name_plural = "Actividades Genéricas"
-        ordering = ['-created_at']
-
-    def __str__(self):
-        return f"{self.title} ({self.get_activity_type_display()})"
-
-
 # ==========================================
 # GAMIFICACIÓN Y TRACKING
 # ==========================================
@@ -134,7 +92,8 @@ class StudentProgress(models.Model):
 
 class Attempt(models.Model):
     student = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='attempts')
-    exercise = models.ForeignKey(Exercise, on_delete=models.CASCADE, related_name='attempts', null=True)
+    exercise = models.ForeignKey(Exercise, on_delete=models.CASCADE, related_name='attempts', null=True, blank=True)
+    lesson = models.ForeignKey(Lesson, on_delete=models.CASCADE, related_name='attempts', null=True, blank=True)
     start_time = models.DateTimeField(null=True, blank=True)
     end_time = models.DateTimeField(auto_now_add=True)
     score = models.FloatField(default=0.0)

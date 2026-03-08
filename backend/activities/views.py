@@ -2,9 +2,9 @@ from rest_framework import viewsets, permissions, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from django.utils import timezone
-from .models import Lesson, Page, Exercise, Activity, Attempt, Achievement, UserAchievement, StudentProgress
+from .models import Lesson, Page, Exercise, Attempt, Achievement, UserAchievement, StudentProgress
 from .serializers import (
-    LessonSerializer, PageSerializer, ExerciseSerializer, ActivitySerializer,
+    LessonSerializer, PageSerializer, ExerciseSerializer,
     AttemptSerializer, AchievementSerializer, UserAchievementSerializer, StudentProgressSerializer
 )
 
@@ -26,13 +26,7 @@ class ExerciseViewSet(viewsets.ModelViewSet):
     serializer_class = ExerciseSerializer
     permission_classes = [permissions.IsAuthenticated]
 
-class ActivityViewSet(viewsets.ModelViewSet):
-    queryset = Activity.objects.all()
-    serializer_class = ActivitySerializer
-    permission_classes = [permissions.IsAuthenticated]
 
-    def perform_create(self, serializer):
-        serializer.save(creator=self.request.user)
 
 class AttemptViewSet(viewsets.ModelViewSet):
     queryset = Attempt.objects.all()
@@ -54,25 +48,46 @@ class AttemptViewSet(viewsets.ModelViewSet):
             if time_taken <= ach.threshold and attempt.is_correct:
                 UserAchievement.objects.get_or_create(student=attempt.student, achievement=ach)
         
+    def _check_achievements(self, attempt):
         if attempt.score >= 100:
             perfect_achievements = Achievement.objects.filter(criteria_type='perfect_score')
             for ach in perfect_achievements:
                 UserAchievement.objects.get_or_create(student=attempt.student, achievement=ach)
 
     def _update_progress(self, attempt):
-        if not attempt.exercise or not attempt.exercise.lesson:
-            return  # Activity generics progress tracking omitted for simplicity
-        lesson = attempt.exercise.lesson
+        # Determine the lesson
+        lesson = attempt.lesson
+        if not lesson and attempt.exercise:
+            lesson = attempt.exercise.lesson or (attempt.exercise.page.lesson if attempt.exercise.page else None)
+        
+        if not lesson:
+            return
+
         progress, created = StudentProgress.objects.get_or_create(
             student=attempt.student, 
             lesson=lesson
         )
-        if attempt.is_correct:
-            progress.completed_pages += 1
-            total_pages = lesson.pages.count() # Or exercises
+
+        if attempt.lesson:
+            # Result of the entire lesson
+            if attempt.is_correct or attempt.score >= 80:
+                progress.is_completed = True
+                # If finished lesson, we can assume all pages are covered
+                total_pages = lesson.pages.count()
+                progress.completed_pages = max(progress.completed_pages, total_pages)
+            progress.save()
+            self._check_achievements(attempt)
+        elif attempt.exercise and attempt.is_correct:
+            # Individual exercise success
+            # Note: simplistic increment, could be improved with per-exercise tracking
+            total_pages = lesson.pages.count()
+            if progress.completed_pages < total_pages:
+                progress.completed_pages += 1
+            
             if progress.completed_pages >= total_pages:
                 progress.is_completed = True
             progress.save()
+            self._check_achievements(attempt)
 
 class AchievementViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = Achievement.objects.all()
