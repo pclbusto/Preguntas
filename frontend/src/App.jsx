@@ -478,6 +478,10 @@ function App() {
             if (page.exercises && Array.isArray(page.exercises)) {
               for (const ex of page.exercises) {
                 const { content, correct_answers } = parseExerciseContent(ex.content);
+                const optionsToSave = (ex.interaction_type === 'drag_and_drop' && Array.isArray(ex.options) && ex.options.length > 0)
+                  ? ex.options
+                  : Object.values(correct_answers);
+
                 await fetch('/api/exercises/', {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json', 'Authorization': `Token ${token}` },
@@ -486,7 +490,7 @@ function App() {
                     content: content,
                     interaction_type: ex.interaction_type || 'text_input',
                     correct_answers: JSON.stringify(correct_answers),
-                    options: JSON.stringify(Object.values(correct_answers))
+                    options: JSON.stringify(optionsToSave)
                   }),
                 });
               }
@@ -603,6 +607,31 @@ function App() {
       raw = raw.replace(`{${gapKey}}`, `{${ex.correct_answers[gapKey]}}`);
     });
     return raw;
+  }
+
+  const handleExportJSON = (lesson) => {
+    const exportData = {
+      title: lesson.title,
+      description: lesson.description,
+      pages: lesson.pages?.map(page => ({
+        page_number: page.page_number,
+        instructions: page.instructions,
+        layout: page.layout,
+        exercises: page.exercises?.map(ex => ({
+          content: getRawContentFromExercise(ex),
+          interaction_type: ex.interaction_type,
+          options: ex.interaction_type === 'drag_and_drop' ? ex.options : undefined
+        }))
+      })) || []
+    };
+
+    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(exportData, null, 2));
+    const downloadAnchorNode = document.createElement('a');
+    downloadAnchorNode.setAttribute("href", dataStr);
+    downloadAnchorNode.setAttribute("download", `${lesson.title.replace(/\s+/g, '_')}_export.json`);
+    document.body.appendChild(downloadAnchorNode);
+    downloadAnchorNode.click();
+    downloadAnchorNode.remove();
   }
 
   const openSignup = () => { setAuthStatus(null); setUsername(""); setPassword(""); setEmail(""); setIsSignupOpen(true); setIsLoginOpen(false); }
@@ -751,6 +780,7 @@ function App() {
                             <p style={{ opacity: 0.7, margin: '0.5rem 0' }}>{lesson.description}</p>
                           </div>
                           <div style={{ display: 'flex', gap: '0.5rem' }}>
+                            <button className="icon-btn" onClick={() => handleExportJSON(lesson)} title="Exportar a JSON">⬇️</button>
                             <button className="icon-btn" onClick={() => setActivePageForEdit(lesson.id === activePageForEdit ? null : lesson.id)}>
                               {activePageForEdit === lesson.id ? "🔼" : "⚙️"}
                             </button>
